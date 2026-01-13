@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lookup Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='pico.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><a href="/">Web-Charsheets</a></h1>
+        </header>
+        <div class="content">
+            <h2>Lookup Results for "{{ search_query }}"</h2>
+            {% if charsheets %}
+                <ul>
+                    {% for charsheet in charsheets %}
+                        <li><a href="{{ url_for('show_charsheet', id_=charsheet.id) }}">{{ charsheet.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No results found.</p>
+            {% endif %}
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='jquery-3.7.1.js') }}"></script>
+</body>
+</html>

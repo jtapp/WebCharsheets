@@ -1,0 +1,89 @@
+body {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+header, .content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+header a {
+    text-decoration: none;
+    color: inherit;
+}
+.content {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+}
+.column {
+    flex: 1;
+    padding: 10px;
+}
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+input.charsheet-field {
+    padding: 3px !important;
+}
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+li {
+    margin-bottom: 10px;
+}
+div.toolbar {
+    margin-bottom: 20px; 
+    text-align: center;
+}
+div.toolbar * {
+    display: inline-block;
+}
+div.toolbar button {
+    width: auto;
+    margin-right: 25px;
+}
+div.toolbar h2, div.toolbar h3 {
+    margin-right: 25px;
+
+}
+div.toolbar button:last-child {
+    /* Removes the right margin from the last button to maintain alignment */
+    margin-right: 0;
+}
+textarea.charsheet-field {
+    resize: none;
+}
+.charsheet-value {
+    position: absolute;
+    overflow-y: scroll;
+    text-align: left;
+}
+#charsheetImg {
+    max-width: 100%; display: block;
+}
+#historyDialog {
+    display: none; 
+    position: fixed; 
+    left: 50%; 
+    top: 50%; 
+    transform: translate(-50%, -50%); 
+    background-color: #11191f; 
+    padding: 3em; 
+    border: 1px solid black; 
+    z-index: 1000;
+}
+#historyDialogOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}

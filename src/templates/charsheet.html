@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Sheet</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='pico.css') }}">
+    <script src="{{ url_for('static', filename='jquery-3.7.1.js') }}"></script>
+</head>
+<body>
+    <div id="historyDialogOverlay"></div>
+    <div id="mainBodyDiv">
+        <header>
+            <h1><a href="{{ url_for('index') }}">Web-Charsheets</a></h1>
+        </header>
+        <div class="toolbar" style="display: flex; align-items: center; justify-content: center; gap: 0.7rem;">
+            <h2 style="margin: 0;">Sheet Name: <code>{{ charsheet.name }}</code></h2>
+            <button onclick="saveSheet()" style="margin-bottom: 0px;">Save</button>
+            <button onclick="saveAsNew()" style="margin-bottom: 0px;">Save as new...</button>
+            <button onclick="seeHistory()" style="margin-bottom: 0px;">See history</button>
+            <button onclick="deleteSheet()" style="margin-bottom: 0px; background: transparent; border: 1px solid #a33; color: #a33;">Delete</button>
+            <div style="display: flex; flex-direction: column; gap: 0.25rem">
+                <label style="margin: 0;">
+                    <input type="checkbox" id="editModeToggle" checked onclick="toggleEditMode()" />
+                    Edit Mode
+                </label>
+                <label style="margin: 0;">
+                    <input type="checkbox" id="autosaveToggle" />
+                    Enable autosave
+                </label>
+            </div>
+        </div>
+        <div class="content" style="text-align: center;">
+            <form id="charsheetForm" name="charsheetForm" data-charsheet-id="{{ charsheet.id }}">
+                <div id="charsheetWrapper" style="position: relative; display: inline-block;">
+                    <img id="charsheetImg" src="{{ charsheet.sheet_type.b64_img }}" alt="Character Sheet">
+                    {% for part in charsheet.sheet_type.form_parts %}
+                        {% if part.input_rect[1][1] - part.input_rect[0][1] > 60 %}
+
+                        <textarea name="{{ part.input_name }}" class="charsheet-field"
+                            style="position: absolute;"
+                            data-original-left="{{ part.input_rect[0][0] }}"
+                            data-original-top="{{ part.input_rect[0][1] }}"
+                            data-original-width="{{ part.input_rect[1][0] - part.input_rect[0][0] }}"
+                            data-original-height="{{ part.input_rect[1][1] - part.input_rect[0][1] }}"></textarea>
+                        {% else %}
+                        <input type="{{ part.input_type }}" name="{{ part.input_name }}" class="charsheet-field"
+                            style="position: absolute;"
+                            data-original-left="{{ part.input_rect[0][0] }}"
+                            data-original-top="{{ part.input_rect[0][1] }}"
+                            data-original-width="{{ part.input_rect[1][0] - part.input_rect[0][0] }}"
+                            data-original-height="{{ part.input_rect[1][1] - part.input_rect[0][1] }}">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="historyDialog">
+        <h2>Revision History</h2>
+        <ul id="revisionsList"></ul>
+        <button onclick="closeHistoryDialog()">Close</button>
+    </div>
+
+    <script>
+
+    function layoutFormFields() {
+        const img = $('#charsheetImg');
+        const naturalWidth = img[0].naturalWidth;
+        const naturalHeight = img[0].naturalHeight;
+        const currentWidth = img.width();
+        const currentHeight = img.height();
+        const scaleX = currentWidth / naturalWidth;
+        const scaleY = currentHeight / naturalHeight;
+
+        $('#charsheetWrapper').children('input, textarea, p').each(function() {
+            const originalLeft = $(this).data('original-left');
+            const originalTop = $(this).data('original-top');
+            const originalWidth = $(this).data('original-width');
+            const originalHeight = $(this).data('original-height');
+
+            $(this).css('font-size', 'clamp(10px, 1.5vw, 22px)');
+
+            if (originalWidth < 150) {
+                $(this).css('text-align', 'center');
+                if (originalWidth < 60) {
+                    $(this).css('font-size', 'clamp(6px, 1.0vw, 16px)');
+                }
+            }
+
+            $(this).css({
+                left: originalLeft * scaleX + 'px',
+                top: originalTop * scaleY + 'px',
+                width: originalWidth * scaleX + 'px',
+                height: originalHeight * scaleY + 'px'
+            });
+        });
+    }
+
+    function loadSheet() {
+        let formValues = {{ charsheet.form_values | tojson }};
+
+        $.each(formValues, function(fieldName, value) {
+            let field = $('#charsheetForm').find('[name="' + fieldName + '"]');
+            if(field.length) {
+                field.val(value);
+            }
+        });
+    }
+
+    function saveSheet(silent) {
+        var formData = {};
+        var charsheetId = $('#charsheetForm').data('charsheet-id');
+        var postUrl = '/charsheet/' + charsheetId + '/save';
+
+        $('#charsheetForm input, #charsheetForm textarea').each(function() {
+            formData[$(this).attr('name')] = $(this).val();
+        });
+
+        $.ajax({
+            url: postUrl, 
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({'form_values': formData}),
+            success: function(response) {
+                console.log('Save successful', response);
+                if (!silent) {
+                    alert('Sheet saved successfully.');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Save failed', status, error);
+                alert('Failed to save sheet.');
+            }
+        });
+    }
+
+    function scaleFont(selector, minFontSize) {
+        $(selector).each(function() {
+            var element = $(this);
+            var height = element.css('height');
+
+            if (height !== 'none') {
+                var currentFontSize = parseFloat(element.css('font-size'));  // Get the current font size
+                height = parseFloat(height);
+                
+                while (element[0].scrollHeight > height && currentFontSize > minFontSize) {
+                    currentFontSize -= 2;
+                    element.css('font-size', currentFontSize + 'px');  // Adjust the font size
+                }
+            }
+        });
+    }
+
+    function toggleEditMode() {
+        var isChecked = $('#editModeToggle').is(':checked');
+        var fields = $('form#charsheetForm input, form#charsheetForm textarea');
+        var charsheetWrapper = $('#charsheetWrapper');
+
+        if (!isChecked) {
+            // Edit mode is turned off, hide form fields and show values in <p> tags
+            fields.each(function() {
+                var value = $(this).val();
+                var p = $('<p class="charsheet-value"></p>');
+
+                // Check for base64-encoded PNG data URIs
+                var base64PngRegex = /data:image\/png;base64,([A-Za-z0-9+/=]+)/g;
+                var matches;
+                var lastIdx = 0;
+                var hasImage = false;
+
+                // Iterate over all matches and replace with images
+                while ((matches = base64PngRegex.exec(value)) !== null) {
+                    var beforeMatch = value.substring(lastIdx, matches.index);
+                    if (beforeMatch) {
+                        p.append(document.createTextNode(beforeMatch));
+                    }
+                    var base64Data = matches[0];
+                    try {
+                        atob(matches[1]); // Validate base64
+                        var img = $('<img>').attr('src', base64Data);
+                        p.append(img);
+                        hasImage = true;
+                    } catch (e) {
+                        // If base64 is not valid, append the string as it is
+                        p.append(document.createTextNode(base64Data));
+                    }
+                    lastIdx = base64PngRegex.lastIndex;
+                }
+
+                // Append remaining text after the last match
+                if (lastIdx < value.length) {
+                    p.append(document.createTextNode(value.substring(lastIdx)));
+                }
+
+                // If no valid image found, just set text
+                if (!hasImage) {
+                    p.text(value);
+                }
+
+                // Convert newlines to `<br>`s.
+                p.html(p.html().replace(/\n/g, '<br>'));
+
+                $.each(this.dataset, function(key, value) {
+                    p.data(key, value);
+                });
+                $(this).hide().after(p);
+            });
+
+            scaleFont('.charsheet-value', 6);
+        } else {
+            // Edit mode is turned on, show form fields and remove <p> tags
+            fields.show();
+            charsheetWrapper.find('.charsheet-value').remove();
+        }
+        layoutFormFields();
+    }
+
+    function saveAsNew() {
+        var newName = prompt('Enter a name for the new sheet:');
+
+        if (!newName || !newName.trim()) {
+            return;
+        }
+
+        var formData = {};
+        var charsheetId = $('#charsheetForm').data('charsheet-id');
+
+        $('#charsheetForm input, #charsheetForm textarea').each(function() {
+            formData[$(this).attr('name')] = $(this).val();
+        });
+
+        $.ajax({
+            url: '/charsheet/' + charsheetId + '/save-new',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                name: newName.trim(),
+                form_values: formData
+            }),
+            success: function(response) {
+                window.location.href = '/charsheet/' + response.id;
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON?.error || 'Failed to save as new sheet.';
+                alert(msg);
+            }
+        });
+    }
+
+    function seeHistory() {
+        // Retrieve the charsheetId from the form's data attribute
+        var charsheetId = $('#charsheetForm').data('charsheet-id');
+
+        // Fetch the revision data for the specific charsheet instance from the server
+        $.get("/charsheet/" + charsheetId + "/revs", function(revisions) {
+            // Empty the current list
+            var revisionsList = $('#revisionsList');
+            revisionsList.empty();
+
+            // Populate the dialog with revisions
+            revisions.forEach(function(rev) {
+                var listItem = $('<li></li>');
+                var link = $('<a></a>')
+                    .attr('href', '/charsheet/rev/' + rev.rev_id)
+                    .text(rev.charsheet_name + ' (' + rev.charsheet_type_name + ') - ' + new Date(rev.revision_dttm).toLocaleString());
+                listItem.append(link);
+                revisionsList.append(listItem);
+            });
+
+            // Show the dialog
+            $('#historyDialog').show();
+            $('#historyDialogOverlay').show();
+
+        }).fail(function() {
+            alert('Failed to load revisions.');
+        });
+    }
+
+    function deleteSheet() {
+        var confirmation = prompt('Type "yes" to confirm deletion:');
+        if (confirmation?.toLowerCase() !== 'yes') {
+            return;
+        }
+
+        var charsheetId = $('#charsheetForm').data('charsheet-id');
+
+        $.ajax({
+            url: '/charsheet/' + charsheetId + '/delete',
+            type: 'POST',
+            success: function() {
+                alert('Sheet deleted.');
+                window.location.href = '/';
+            },
+            error: function(xhr) {
+                var msg = xhr.responseJSON?.error || 'Failed to delete sheet.';
+                alert(msg);
+            }
+        });
+    }
+
+    var autosaveReady = false;
+    function autosaveLoop() {
+        if (autosaveReady && $('#autosaveToggle').is(':checked')) {
+            saveSheet(true);
+        }
+        autosaveReady = true;
+        setTimeout(autosaveLoop, 5 * 60 * 1000);
+    }
+
+    $('#autosaveToggle').on('change', function() {
+        localStorage.setItem('autosaveEnabled', $(this).is(':checked'));
+    });
+
+    function closeHistoryDialog() {
+        $('#historyDialog').hide();
+        $('#historyDialogOverlay').hide();
+    }
+
+    $(document).ready(function() {
+        loadSheet();
+        layoutFormFields();
+        $(window).resize(layoutFormFields);
+        autosaveLoop();
+        $('#autosaveToggle').prop('checked', localStorage.getItem('autosaveEnabled') === 'true');
+    });
+
+    </script>
+</body>
+</html>

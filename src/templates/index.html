@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web-Charsheets</title>
+    <link rel="stylesheet" href="static/pico.css">
+    <link rel="stylesheet" href="static/style.css">
+    <script src="{{ url_for('static', filename='jquery-3.7.1.js') }}"></script>
+    <style>
+        h4 { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><a href="/">Web-Charsheets</a></h1>
+            <hr>
+        </header>
+        <div class="content">
+            <div class="column">
+                <h4>Look up your character sheet by name or id:</h4>
+                <form name="charsheetLookupForm" action="charsheet/lookup">
+                    <input type="text" name="charsheet_lookup" placeholder="Enter sheet name or ID to search">
+                    <button type="submit" style="margin-bottom: 0;">Search</button>
+                </form>
+            </div>
+            <div class="column">
+                <h4>Or select from these recent revisions:</h4>
+                <ul id="recentRevList" style="margin-left: 3em; margin-right: 3em;">
+                </ul>
+            </div>
+            <div class="column">
+                <h4>Or start a new sheet:</h4>
+                <form name="createCharsheetForm" action="charsheet/new" method="POST">
+                    <label for="new-sheet-type">Choose a sheet type:</label>
+                    <select id="new-sheet-type" name="sheet_type">
+                    </select>
+                    <label for="new-sheet-name">Sheet name:</label>
+                    <input type="text" id="new-sheet-name" name="sheet_name" placeholder="New Character Sheet Name">
+                    <button type="submit">Create</button>
+                </form>
+                <p style="font-size: small;"><em>Note: remember to bookmark your new sheet, or save its ID!</em></p>
+            </div>
+        </div>
+    </div>
+    <script>
+    function fetchRecentRevisions() {
+        $.get("charsheet/rev/recents")
+        .done(function(data) {
+            if (data.length > 0) {
+                // If data is received, iterate and append each item to the list
+                data.forEach(function(item) {
+                    var listItem = $("<li></li>");
+                    var link = $("<a></a>")
+                        .attr("href", "/charsheet/rev/" + item.rev_id)
+                        .text(
+                            item.charsheet_name + " - " + 
+                            item.charsheet_type_name + " - " + 
+                            new Date(item.revision_dttm).toLocaleString()
+                        );
+                    
+                    // Append the link to the list item, and then the list item to the list
+                    listItem.append(link);
+                    $("#recentRevList").append(listItem);
+                });
+            } else {
+                // If the list is empty, display a message indicating no revisions
+                $("#recentRevList").append($("<li></li>").text("(No revisions created yet...)"));
+            }
+        }).fail(function() {
+            // If the AJAX call fails, display an error message
+            $("#recentRevList").text("Could not load contents!").css("color", "darkred");
+        });
+    }
+
+    function fetchSheetTypes() {
+        $.get("charsheet/types").done(function(data) {
+            var select = $("#new-sheet-type");
+            select.empty(); // Clear existing options
+            
+            if (data.length === 0) {
+                // If the response is an empty list, add a non-selectable option
+                var option = $("<option></option>").text("(none available)").attr("disabled", "disabled").attr("selected", true);
+                select.append(option);
+            } else {
+                // If data is received, iterate and append each item to the select
+                data.forEach(function(type) {
+                    var option = $("<option></option>").val(type.id).text(type.name);
+                    select.append(option);
+                });
+            }
+        }).fail(function() {
+            $("#new-sheet-type").closest('form').prepend($("<p>Could not load sheet types!</p>").css("color", "darkred"));
+        });
+    }
+
+    
+    $(document).ready(function() {
+        fetchRecentRevisions();
+        fetchSheetTypes();
+    });
+    </script>
+    
+</body>
+</html>
