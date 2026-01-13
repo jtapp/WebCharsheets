@@ -3,6 +3,8 @@
 *.db
 *.db-shm
 *.db-wal
+*.DS_Store
+.vscode/
 venv/
 __pycache__/
 util/imported/*

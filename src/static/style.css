@@ -28,6 +28,7 @@ form {
 }
 input.charsheet-field {
     padding: 3px !important;
+    color: #fff;
 }
 ul {
     list-style-type: none;
@@ -60,8 +61,9 @@ textarea.charsheet-field {
 }
 .charsheet-value {
     position: absolute;
-    overflow-y: scroll;
+    overflow-y: auto;
     text-align: left;
+    color: #fff;
 }
 #charsheetImg {
     max-width: 100%; display: block;
